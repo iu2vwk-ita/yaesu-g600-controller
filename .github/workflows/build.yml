@@ -1,0 +1,82 @@
+name: Build WK Rotor Control (Win + Mac)
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Build EXE
+        run: |
+          python -m PyInstaller --onefile --windowed --name "WKRotorControl" --add-data "index.html;." --add-data "css;css" --add-data "js;js" --add-data "assets/yaesu_map.png;assets" --hidden-import webview --hidden-import pythonnet --hidden-import clr_loader --hidden-import cffi --hidden-import fitz --hidden-import PIL --hidden-import PIL._imaging --hidden-import serial --hidden-import serial.tools.list_ports app.py
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WKRotorControl-Windows
+          path: dist/WKRotorControl.exe
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Build APP
+        run: |
+          python -m PyInstaller --onefile --windowed --name "WKRotorControl" --add-data "index.html:." --add-data "css:css" --add-data "js:js" --add-data "assets/yaesu_map.png:assets" --hidden-import webview --hidden-import fitz --hidden-import PIL --hidden-import PIL._imaging --hidden-import serial --hidden-import serial.tools.list_ports --osx-bundle-identifier "com.wk.rotorcontrol" app.py
+
+      - name: Zip macOS app
+        run: |
+          cd dist
+          zip -r ../WKRotorControl-macOS.zip WKRotorControl.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WKRotorControl-macOS
+          path: WKRotorControl-macOS.zip
+          if-no-files-found: error
+
+  release:
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Build #${{ github.run_number }}
+          files: |
+            artifacts/WKRotorControl-Windows/WKRotorControl.exe
+            artifacts/WKRotorControl-macOS/WKRotorControl-macOS.zip
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

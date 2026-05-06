@@ -15,7 +15,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo [INFO] Avvio build con PyInstaller...
-.venv\Scripts\python -m PyInstaller --onefile --windowed --name "WKRotorControl" --icon "assets/app_icon.ico" --add-data "index.html;." --add-data "css;css" --add-data "js;js" --add-data "assets/yaesu_map.png;assets" --hidden-import webview --hidden-import pythonnet --hidden-import clr_loader --hidden-import cffi --hidden-import fitz --hidden-import PIL --hidden-import PIL._imaging app.py
+.venv\Scripts\python -m PyInstaller --onefile --windowed --name "WKRotorControl" --icon "assets/app_icon.ico" --add-data "index.html;." --add-data "css;css" --add-data "js;js" --add-data "assets/yaesu_map.png;assets" --hidden-import webview --hidden-import pythonnet --hidden-import clr_loader --hidden-import cffi --hidden-import fitz --hidden-import PIL --hidden-import PIL._imaging --hidden-import serial --hidden-import serial.tools.list_ports app.py
 
 if %errorlevel% neq 0 (
     echo [ERRORE] Build fallita.

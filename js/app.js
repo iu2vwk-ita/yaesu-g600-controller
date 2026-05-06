@@ -9,6 +9,41 @@ const radius = 190;
 const rotor = new RotorController();
 rotor.startSimulation();
 
+/* ---- Popolamento dinamico porte seriali ---- */
+function populateSerialPorts() {
+  const comSelect = document.getElementById('comPort');
+  if (!comSelect) return;
+
+  const isPython = window.pywebview && window.pywebview.api && window.pywebview.api.list_serial_ports;
+  if (isPython) {
+    try {
+      const ports = window.pywebview.api.list_serial_ports();
+      if (ports && ports.length > 0) {
+        comSelect.innerHTML = '';
+        ports.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.port;
+          opt.textContent = p.port + (p.description ? ' (' + p.description + ')' : '');
+          comSelect.appendChild(opt);
+        });
+        comSelect.style.color = '#fdd835';
+        return;
+      }
+    } catch (e) {}
+  }
+
+  // Fallback: porte predefinite per Windows (COM1-COM10)
+  const names = Array.from({ length: 10 }, (_, i) => 'COM' + (i + 1));
+  comSelect.innerHTML = '';
+  names.forEach((n, i) => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    if (i === 6) opt.selected = true;
+    comSelect.appendChild(opt);
+  });
+}
+
 /* ---- Caricamento mappa (pywebview file / localStorage / assets) ---- */
 let mapImg = null;
 let mapLoaded = false;
@@ -292,6 +327,39 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); rotor.stop(); }
 });
 
+/* ---- Connessione seriale automatica ---- */
+async function tryConnectSerial() {
+  const port = comSelect ? comSelect.value : null;
+  const baud = baudSelect ? parseInt(baudSelect.value, 10) : 9600;
+  if (!port) return;
+
+  try {
+    // Web Serial (Chrome/Edge/Windows)
+    if (rotor.isWebSerialAvailable()) {
+      await rotor.connectSerial(null, baud);
+      comSelect.style.color = '#00ff41';
+      return;
+    }
+    // Python Serial Bridge (macOS/Linux)
+    if (rotor.isPythonSerialAvailable()) {
+      await rotor.connectPythonSerial(port, baud);
+      comSelect.style.color = '#00ff41';
+      return;
+    }
+  } catch (e) {
+    console.warn('Connessione seriale fallita:', e.message);
+    comSelect.style.color = '#ff5252';
+  }
+}
+
+if (comSelect) {
+  comSelect.addEventListener('change', () => tryConnectSerial());
+}
+
+if (baudSelect) {
+  baudSelect.addEventListener('change', () => tryConnectSerial());
+}
+
 /* ---- Caricamento immagine ---- */
 if (compassUpload && mapInput) {
   compassUpload.addEventListener('click', () => mapInput.click());
@@ -454,5 +522,6 @@ if (titleEl) {
 }
 
 // Inizializza
+populateSerialPorts();
 updateDisplay(rotor.currentAzimuth, rotor.targetAzimuth);
 drawCompass();

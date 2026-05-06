@@ -12,8 +12,18 @@ import shutil
 import urllib.request
 import urllib.parse
 import base64
+import threading
+import queue
+import time
 import webview
 import fitz  # PyMuPDF per conversione PDF
+
+try:
+    import serial
+    import serial.tools.list_ports
+    HAS_SERIAL = True
+except ImportError:
+    HAS_SERIAL = False
 
 def get_script_dir():
     if getattr(sys, 'frozen', False):
@@ -234,8 +244,143 @@ class RotorApi:
             if doc:
                 doc.close()
 
+class SerialBridge:
+    """Bridge seriale per macOS (WebKit non supporta Web Serial API)."""
+
+    def __init__(self):
+        self._ser = None
+        self._lock = threading.Lock()
+        self._rx_queue = queue.Queue()
+        self._reader_thread = None
+        self._running = False
+
+    def _log(self, msg):
+        print(f'[SerialBridge] {msg}', flush=True)
+
+    def list_ports(self):
+        """Restituisce lista porte seriali disponibili come [{port, description}]."""
+        if not HAS_SERIAL:
+            return []
+        ports = []
+        for p in serial.tools.list_ports.comports():
+            ports.append({'port': p.device, 'description': p.description or p.device})
+        return ports
+
+    def open(self, port, baud=9600):
+        """Apre la porta seriale specificata."""
+        if not HAS_SERIAL:
+            return False
+        with self._lock:
+            if self._ser and self._ser.is_open:
+                try:
+                    self._ser.close()
+                except Exception:
+                    pass
+            try:
+                self._ser = serial.Serial(port, baudrate=int(baud), timeout=0.5)
+                self._running = True
+                self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
+                self._reader_thread.start()
+                self._log(f'Aperta {port} @ {baud}')
+                return True
+            except Exception as e:
+                self._log(f'Errore apertura {port}: {e}')
+                self._ser = None
+                return False
+
+    def close(self):
+        """Chiude la porta seriale."""
+        self._running = False
+        with self._lock:
+            if self._ser and self._ser.is_open:
+                try:
+                    self._ser.close()
+                except Exception:
+                    pass
+            self._ser = None
+        self._log('Porta chiusa')
+
+    def send(self, data):
+        """Invia dati sulla seriale (con terminatore \\r)."""
+        with self._lock:
+            if self._ser and self._ser.is_open:
+                try:
+                    cmd = (data + '\r').encode('ascii', errors='ignore')
+                    self._ser.write(cmd)
+                    self._ser.flush()
+                    self._log(f'TX: {data}')
+                    return True
+                except Exception as e:
+                    self._log(f'TX errore: {e}')
+                    return False
+        return False
+
+    def receive_line(self):
+        """Legge una riga dal buffer di ricezione (non bloccante). Restituisce None se vuoto."""
+        try:
+            return self._rx_queue.get_nowait()
+        except queue.Empty:
+            return None
+
+    def _reader_loop(self):
+        """Loop di lettura in background."""
+        buf = ''
+        while self._running:
+            with self._lock:
+                ser = self._ser
+            if not ser or not ser.is_open:
+                time.sleep(0.1)
+                continue
+            try:
+                if ser.in_waiting > 0:
+                    chunk = ser.read(ser.in_waiting).decode('ascii', errors='ignore')
+                    buf += chunk
+                    lines = buf.split('\r')
+                    buf = lines.pop()
+                    for line in lines:
+                        stripped = line.strip()
+                        if stripped:
+                            self._log(f'RX: {stripped}')
+                            self._rx_queue.put(stripped)
+                else:
+                    time.sleep(0.05)
+            except Exception as e:
+                self._log(f'Reader errore: {e}')
+                time.sleep(0.5)
+
+    def is_open(self):
+        with self._lock:
+            return self._ser is not None and self._ser.is_open
+
+
+class RotorApiWithSerial(RotorApi):
+    """Versione estesa con bridge seriale per macOS."""
+
+    def __init__(self):
+        super().__init__()
+        self.serial_bridge = SerialBridge()
+
+    def list_serial_ports(self):
+        return self.serial_bridge.list_ports()
+
+    def open_serial_port(self, port, baud=9600):
+        return self.serial_bridge.open(port, baud)
+
+    def close_serial_port(self):
+        self.serial_bridge.close()
+
+    def serial_send(self, data):
+        return self.serial_bridge.send(data)
+
+    def serial_receive_line(self):
+        return self.serial_bridge.receive_line()
+
+    def serial_is_open(self):
+        return self.serial_bridge.is_open()
+
+
 def main():
-    api = RotorApi()
+    api = RotorApiWithSerial()
     webview.create_window(
         'WK Rotor Control',
         'index.html',

@@ -108,7 +108,7 @@ class RotorController {
     else this._notify();
   }
 
-  /* ---- Web Serial API (Chrome/Edge) ---- */
+  /* ---- Web Serial API (Chrome/Edge / Windows) ---- */
   async connectSerial(port, baudRate = 9600) {
     if (!('serial' in navigator)) {
       throw new Error('Web Serial API non supportata. Usa Chrome/Edge.');
@@ -119,7 +119,7 @@ class RotorController {
       this.writer = this.port.writable.getWriter();
       this.reader = this.port.readable.getReader();
       this.mode = 'serial';
-      this.startSimulation(); // continuiamo a simulare la UI, ma sincronizziamo con seriale
+      this.startSimulation();
       this._startReadLoop();
       return true;
     } catch (e) {
@@ -129,18 +129,78 @@ class RotorController {
     }
   }
 
+  /* ---- Python Serial Bridge (macOS / pywebview) ---- */
+  connectPythonSerial(port, baudRate = 9600) {
+    if (!window.pywebview || !window.pywebview.api) {
+      throw new Error('Python bridge non disponibile.');
+    }
+    try {
+      const ok = window.pywebview.api.open_serial_port(port, baudRate);
+      if (!ok) throw new Error('Impossibile aprire ' + port);
+      this.mode = 'serial';
+      this.startSimulation();
+      this._startPythonReadLoop();
+      return true;
+    } catch (e) {
+      console.error('Errore Python serial:', e);
+      this.mode = 'simulated';
+      return false;
+    }
+  }
+
+  disconnectPythonSerial() {
+    this.readLoopRunning = false;
+    if (window.pywebview && window.pywebview.api) {
+      try { window.pywebview.api.close_serial_port(); } catch (e) {}
+    }
+  }
+
+  _startPythonReadLoop() {
+    this.readLoopRunning = true;
+    const poll = () => {
+      if (!this.readLoopRunning || this.mode !== 'serial') return;
+      try {
+        const line = window.pywebview.api.serial_receive_line();
+        if (line) this._handleSerialLine(line.trim());
+      } catch (e) {}
+      setTimeout(poll, 80);
+    };
+    poll();
+  }
+
+  /* ---- Disconnessione unificata ---- */
   async disconnectSerial() {
     this.readLoopRunning = false;
-    try { if (this.reader) { await this.reader.cancel(); this.reader = null; } } catch (e) {}
-    try { if (this.writer) { await this.writer.close(); this.writer = null; } } catch (e) {}
-    try { if (this.port) { await this.port.close(); this.port = null; } } catch (e) {}
+    if (this.port) {
+      try { if (this.reader) { await this.reader.cancel(); this.reader = null; } } catch (e) {}
+      try { if (this.writer) { await this.writer.close(); this.writer = null; } } catch (e) {}
+      try { if (this.port) { await this.port.close(); this.port = null; } } catch (e) {}
+    }
+    if (window.pywebview && window.pywebview.api) {
+      try { window.pywebview.api.close_serial_port(); } catch (e) {}
+    }
     this.mode = 'simulated';
   }
 
+  isWebSerialAvailable() {
+    return typeof navigator !== 'undefined' && 'serial' in navigator;
+  }
+
+  isPythonSerialAvailable() {
+    return !!(window.pywebview && window.pywebview.api && window.pywebview.api.list_serial_ports);
+  }
+
   async _sendSerial(cmd) {
-    if (!this.writer) return;
-    const data = new TextEncoder().encode(cmd + '\r');
-    await this.writer.write(data);
+    // Prova prima Web Serial
+    if (this.writer) {
+      const data = new TextEncoder().encode(cmd + '\r');
+      await this.writer.write(data);
+      return;
+    }
+    // Fallback Python serial
+    if (window.pywebview && window.pywebview.api) {
+      try { window.pywebview.api.serial_send(cmd); } catch (e) {}
+    }
   }
 
   async _startReadLoop() {
