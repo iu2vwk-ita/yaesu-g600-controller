@@ -456,3 +456,115 @@ body {
 
 /* Utility */
 .hidden { display: none !important; }
+
+/* Settings */
+.settings-section {
+  width: 100%;
+  background: linear-gradient(180deg, #1a1a1a 0%, #161616 100%);
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.settings-header:hover {
+  background: rgba(255, 193, 7, 0.04);
+}
+
+.settings-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #4fc3f7;
+}
+
+.settings-arrow {
+  font-size: 10px;
+  color: #666;
+  transition: transform 200ms ease-out;
+}
+.settings-arrow.open {
+  transform: rotate(180deg);
+}
+
+.settings-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 250ms ease-out;
+}
+.settings-body.expanded {
+  max-height: 160px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid #222;
+  gap: 12px;
+}
+
+.settings-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #888;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 80px;
+}
+.settings-label input[type="checkbox"] {
+  accent-color: #4fc3f7;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+.settings-label input[type="checkbox"]:checked + span {
+  color: #4fc3f7;
+}
+
+.settings-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-input {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 13px;
+  background: #0a0a0a;
+  color: #ffc107;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 5px 8px;
+  width: 56px;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.15s, opacity 0.2s;
+}
+.settings-input:focus {
+  border-color: #4fc3f7;
+}
+.settings-input:disabled {
+  opacity: 0.3;
+  color: #666;
+}
+
+.settings-sep {
+  color: #444;
+  font-size: 12px;
+  user-select: none;
+}

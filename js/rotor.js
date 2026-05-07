@@ -14,6 +14,18 @@ class RotorController {
     this.readLoopRunning = false;
     this.onUpdate = null;      // callback(curr, target)
     this._simTimer = null;
+
+    // Overlap indicator
+    this.overlapEnabled = true;
+    this.overlapStart = 315;   // dove inizia la zona overlap
+    this.overlapEnd = 45;      // dove finisce la zona overlap (CW)
+
+    // Sector limit
+    this.limitEnabled = false;
+    this.limitMin = 30;        // settore minimo consentito
+    this.limitMax = 330;       // settore massimo consentito
+
+    this.visualAzimuth = 0;    // angolo continuo (non normalizzato) per la lancetta
   }
 
   /* ---- Simulazione ---- */
@@ -32,24 +44,65 @@ class RotorController {
   _tick() {
     if (!this.isMoving || !this.power) return;
 
-    let diff = this._normalizeDiff(this.targetAzimuth - this.currentAzimuth);
-    // Se siamo a meno di uno step dalla meta', arriviamo direttamente
-    // senza superarla: cosi' eliminiamo il rimbalzo (vibrazione)
+    let target = this._clampToLimits(this.targetAzimuth);
+    let diff = this._computePathDiff(target);
+
     if (Math.abs(diff) <= this.speed) {
-      this.currentAzimuth = this.targetAzimuth;
+      this.currentAzimuth = target;
+      this.visualAzimuth = target;
       this.isMoving = false;
       this.direction = 0;
     } else {
       if (diff > 0) {
         this.currentAzimuth += this.speed;
+        this.visualAzimuth += this.speed;
         this.direction = 1;
       } else {
         this.currentAzimuth -= this.speed;
+        this.visualAzimuth -= this.speed;
         this.direction = -1;
       }
-      this.currentAzimuth = this._normalize(this.currentAzimuth);
+      this.currentAzimuth = this._clampToLimits(this._normalize(this.currentAzimuth));
     }
     this._notify();
+  }
+
+  _clampToLimits(az) {
+    if (!this.limitEnabled) return this._normalize(az);
+    const a = this._normalize(az);
+    const min = this._normalize(this.limitMin);
+    const max = this._normalize(this.limitMax);
+    const sectorSize = ((max - min + 360) % 360);
+    if (sectorSize < 0.5) return a;
+    const rel = ((a - min + 360) % 360);
+    if (rel <= sectorSize) return a;
+    const dToMin = Math.min(360 - rel, rel);
+    const dToMax = Math.min(Math.abs(rel - sectorSize), 360 - Math.abs(rel - sectorSize));
+    if (Math.abs(dToMin) <= Math.abs(dToMax)) return min;
+    return max;
+  }
+
+  _computePathDiff(target) {
+    const curr = this._normalize(this.currentAzimuth);
+    const tgt = this._normalize(target);
+    let shortDiff = this._normalizeDiff(tgt - curr);
+    if (!this.limitEnabled) return shortDiff;
+
+    const min = this._normalize(this.limitMin);
+    const max = this._normalize(this.limitMax);
+    const sectorSize = ((max - min + 360) % 360);
+    if (sectorSize < 0.5) return 0;
+
+    let safe = true;
+    const steps = Math.ceil(Math.abs(shortDiff) / this.speed);
+    for (let i = 1; i <= steps; i++) {
+      const step = i * this.speed;
+      const pos = this._normalize(curr + (shortDiff > 0 ? step : -step));
+      if (this._clampToLimits(pos) !== pos) { safe = false; break; }
+    }
+
+    if (safe) return shortDiff;
+    return shortDiff > 0 ? shortDiff - 360 : shortDiff + 360;
   }
 
   _normalize(v) { return ((v % 360) + 360) % 360; }
@@ -63,6 +116,19 @@ class RotorController {
     if (this.onUpdate) this.onUpdate(this.currentAzimuth, this.targetAzimuth);
   }
 
+  /* ---- Configurazione overlap e limiti ---- */
+  setOverlap(enabled, start, end) {
+    this.overlapEnabled = enabled;
+    this.overlapStart = this._normalize(start);
+    this.overlapEnd = this._normalize(end);
+  }
+
+  setLimits(enabled, min, max) {
+    this.limitEnabled = enabled;
+    this.limitMin = this._normalize(min);
+    this.limitMax = this._normalize(max);
+  }
+
   /* ---- Controllo locale (senza seriale) ---- */
   setPower(on) {
     this.power = on;
@@ -72,7 +138,7 @@ class RotorController {
   }
 
   setTarget(az) {
-    this.targetAzimuth = this._normalize(az);
+    this.targetAzimuth = this._clampToLimits(this._normalize(az));
     this._notify();
   }
 
@@ -91,8 +157,8 @@ class RotorController {
     if (this.mode === 'serial' && this.port) {
       this._sendSerial('S');
     }
-    // In simulazione, il target diventa la posizione attuale per fermarsi
     this.targetAzimuth = this.currentAzimuth;
+    this.visualAzimuth = this.currentAzimuth;
     this._notify();
   }
 
@@ -103,7 +169,7 @@ class RotorController {
   }
 
   preset(az) {
-    this.targetAzimuth = this._normalize(az);
+    this.targetAzimuth = this._clampToLimits(this._normalize(az));
     if (this.power) this.go();
     else this._notify();
   }
@@ -229,7 +295,10 @@ class RotorController {
     if (line.startsWith('+') || line.startsWith('-')) {
       const val = parseInt(line.slice(1), 10);
       if (!isNaN(val)) {
-        this.currentAzimuth = this._normalize(val);
+        const newAz = this._normalize(val);
+        const diff = this._normalizeDiff(newAz - this.currentAzimuth);
+        this.visualAzimuth += diff;
+        this.currentAzimuth = newAz;
         this._notify();
       }
     }

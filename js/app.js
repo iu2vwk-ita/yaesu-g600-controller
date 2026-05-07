@@ -165,8 +165,12 @@ function drawCompass() {
   ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   ctx.stroke();
 
+  // Settori limite e overlap
+  drawLimitSectors(ctx);
+  drawOverlapIndicator(ctx);
+
   // Ago giallo
-  drawNeedle(ctx, rotor.currentAzimuth);
+  drawNeedle(ctx, rotor.visualAzimuth);
 
   requestAnimationFrame(drawCompass);
 }
@@ -284,6 +288,97 @@ function drawWorldMap(ctx, cx, cy) {
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
+}
+
+function drawOverlapIndicator(ctx) {
+  if (!rotor.overlapEnabled) return;
+  const start = rotor.overlapStart;
+  const end = rotor.overlapEnd;
+  ctx.save();
+  ctx.beginPath();
+  let angleStart = toRad(start) - Math.PI / 2;
+  let angleEnd = toRad(end) - Math.PI / 2;
+  if (angleEnd < angleStart) angleEnd += Math.PI * 2;
+  ctx.arc(cx, cy, radius - 6, angleStart, angleEnd);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(79, 195, 247, 0.7)';
+  ctx.shadowColor = 'rgba(79, 195, 247, 0.6)';
+  ctx.shadowBlur = 10;
+  ctx.stroke();
+  for (const a of [start, end]) {
+    const ra = toRad(a) - Math.PI / 2;
+    const x1 = cx + Math.cos(ra) * (radius - 14);
+    const y1 = cy + Math.sin(ra) * (radius - 14);
+    const x2 = cx + Math.cos(ra) * (radius + 2);
+    const y2 = cy + Math.sin(ra) * (radius + 2);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(79, 195, 247, 0.9)';
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawLimitSectors(ctx) {
+  if (!rotor.limitEnabled) return;
+  const min = rotor.limitMin;
+  const max = rotor.limitMax;
+  const sectorSize = ((max - min + 360) % 360);
+  if (sectorSize >= 359) return;
+
+  const arcR = radius - 8;
+
+  ctx.save();
+  let startAngle = toRad(max) - Math.PI / 2;
+  let endAngle = toRad(min) - Math.PI / 2;
+  if (endAngle < startAngle) endAngle += Math.PI * 2;
+
+  // Sfondo scuro semitrasparente sul settore proibito
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, radius, startAngle, endAngle);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(229, 57, 53, 0.12)';
+  ctx.fill();
+
+  // Arco di confine
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 3, startAngle, endAngle);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(229, 57, 53, 0.45)';
+  ctx.setLineDash([6, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Tacca a min
+  let ra = toRad(min) - Math.PI / 2;
+  let x1 = cx + Math.cos(ra) * (radius - 12);
+  let y1 = cy + Math.sin(ra) * (radius - 12);
+  let x2 = cx + Math.cos(ra) * (radius + 2);
+  let y2 = cy + Math.sin(ra) * (radius + 2);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(229, 57, 53, 0.9)';
+  ctx.stroke();
+
+  // Tacca a max
+  ra = toRad(max) - Math.PI / 2;
+  x1 = cx + Math.cos(ra) * (radius - 12);
+  y1 = cy + Math.sin(ra) * (radius - 12);
+  x2 = cx + Math.cos(ra) * (radius + 2);
+  y2 = cy + Math.sin(ra) * (radius + 2);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(229, 57, 53, 0.9)';
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 /* ---- Display Update ---- */
@@ -520,6 +615,95 @@ if (titleEl) {
     });
   });
 }
+
+/* ---- Impostazioni Overlap e Limiti ---- */
+const LS_OVERLAP = 'yaesu_g600_overlap';
+const LS_LIMITS = 'yaesu_g600_limits';
+
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsArrow = document.getElementById('settingsArrow');
+const settingsBody = document.getElementById('settingsBody');
+const overlapCheck = document.getElementById('overlapCheck');
+const overlapStart = document.getElementById('overlapStart');
+const overlapEnd = document.getElementById('overlapEnd');
+const limitCheck = document.getElementById('limitCheck');
+const limitMin = document.getElementById('limitMin');
+const limitMax = document.getElementById('limitMax');
+
+// Toggle espansione
+if (settingsToggle) {
+  settingsToggle.addEventListener('click', () => {
+    const expanded = settingsBody.classList.toggle('expanded');
+    settingsArrow.classList.toggle('open', expanded);
+  });
+}
+
+function loadSettings() {
+  try {
+    const overlap = JSON.parse(localStorage.getItem(LS_OVERLAP));
+    if (overlap) {
+      rotor.setOverlap(overlap.enabled, overlap.start, overlap.end);
+      overlapCheck.checked = overlap.enabled;
+      overlapStart.value = overlap.start;
+      overlapEnd.value = overlap.end;
+    }
+  } catch (e) {}
+  try {
+    const limits = JSON.parse(localStorage.getItem(LS_LIMITS));
+    if (limits) {
+      rotor.setLimits(limits.enabled, limits.min, limits.max);
+      limitCheck.checked = limits.enabled;
+      limitMin.value = limits.min;
+      limitMax.value = limits.max;
+      limitMin.disabled = !limits.enabled;
+      limitMax.disabled = !limits.enabled;
+    }
+  } catch (e) {}
+}
+
+function saveOverlap() {
+  const data = {
+    enabled: overlapCheck.checked,
+    start: parseInt(overlapStart.value, 10) || 315,
+    end: parseInt(overlapEnd.value, 10) || 45
+  };
+  rotor.setOverlap(data.enabled, data.start, data.end);
+  try { localStorage.setItem(LS_OVERLAP, JSON.stringify(data)); } catch (e) {}
+}
+
+function saveLimits() {
+  const min = parseInt(limitMin.value, 10) || 30;
+  const max = parseInt(limitMax.value, 10) || 330;
+  const data = { enabled: limitCheck.checked, min, max };
+  rotor.setLimits(data.enabled, data.min, data.max);
+  try { localStorage.setItem(LS_LIMITS, JSON.stringify(data)); } catch (e) {}
+}
+
+if (overlapCheck) {
+  overlapCheck.addEventListener('change', saveOverlap);
+}
+if (overlapStart) {
+  overlapStart.addEventListener('input', saveOverlap);
+}
+if (overlapEnd) {
+  overlapEnd.addEventListener('input', saveOverlap);
+}
+
+if (limitCheck) {
+  limitCheck.addEventListener('change', () => {
+    limitMin.disabled = !limitCheck.checked;
+    limitMax.disabled = !limitCheck.checked;
+    saveLimits();
+  });
+}
+if (limitMin) {
+  limitMin.addEventListener('input', saveLimits);
+}
+if (limitMax) {
+  limitMax.addEventListener('input', saveLimits);
+}
+
+loadSettings();
 
 // Inizializza
 populateSerialPorts();

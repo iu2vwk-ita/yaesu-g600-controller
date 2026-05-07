@@ -32,6 +32,8 @@ Universal antenna rotor controller for **Yaesu G-600** and compatible rotors (GS
 - **Azimuthal Map Generator** — Generate high-resolution azimuthal projection maps centered on your QTH using NS6T data. Instant PDF → PNG conversion.
 - **Real-time Compass Display** — Live heading readout with a rendered azimuth compass overlay atop your generated map.
 - **GS-232 Serial Protocol** — Communicates directly with Yaesu G-600 and compatible rotors over USB serial.
+- **Overlap Indicator** — Glowing blue arc on the compass shows the mechanical overlap zone (configurable 0°–360°).
+- **Azimuth Sector Limits** — Restrict rotation to a user-defined sector. The rotor automatically routes around forbidden zones, visualized as a dashed red overlay.
 - **Simulation Mode** — Full UI testable without hardware. A 50ms software timer simulates azimuth movement.
 - **Cross-Platform** — Native desktop apps for Windows (WebView2) and macOS (WebKit + pyserial).
 - **CI/CD Builds** — Every push builds both platforms automatically via GitHub Actions.

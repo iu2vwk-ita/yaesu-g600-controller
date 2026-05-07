@@ -82,6 +82,37 @@
         <button class="preset" data-preset="360">360</button>
         <button class="preset park" data-preset="0">Park</button>
       </div>
+
+      <div class="settings-section">
+        <div class="settings-header" id="settingsToggle">
+          <span class="settings-title">LIMITS &amp; OVERLAP</span>
+          <span class="settings-arrow" id="settingsArrow">&#9660;</span>
+        </div>
+        <div class="settings-body" id="settingsBody">
+          <div class="settings-row">
+            <label class="settings-label">
+              <input type="checkbox" id="overlapCheck" checked>
+              <span>OVERLAP</span>
+            </label>
+            <div class="settings-inputs">
+              <input type="number" id="overlapStart" class="settings-input" value="315" min="0" max="360" placeholder="Start">
+              <span class="settings-sep">&ndash;</span>
+              <input type="number" id="overlapEnd" class="settings-input" value="45" min="0" max="360" placeholder="End">
+            </div>
+          </div>
+          <div class="settings-row">
+            <label class="settings-label">
+              <input type="checkbox" id="limitCheck">
+              <span>LIMIT</span>
+            </label>
+            <div class="settings-inputs">
+              <input type="number" id="limitMin" class="settings-input" value="30" min="0" max="360" placeholder="Min" disabled>
+              <span class="settings-sep">&ndash;</span>
+              <input type="number" id="limitMax" class="settings-input" value="330" min="0" max="360" placeholder="Max" disabled>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
 
     <footer class="app-footer">

@@ -51,7 +51,7 @@
     "price": "0",
     "priceCurrency": "USD"
   },
-  "softwareVersion": "1.0",
+  "softwareVersion": "1.1.0",
   "downloadUrl": "https://github.com/iu2vwk-ita/WK-Rotor-Control/releases/latest",
   "license": "https://opensource.org/licenses/MIT",
   "codeRepository": "https://github.com/iu2vwk-ita/WK-Rotor-Control"
@@ -565,7 +565,15 @@ a:hover{color:var(--amber)}
         <div class="fc-icon" aria-hidden="true"><div class="ic-compass"></div></div>
         <h3 class="fc-title">Compass that moves with the rotor, not with a delay</h3>
         <p class="fc-desc">
-          The needle tracks the rotor in real time. Target heading displayed above the compass, live azimuth readout below. The canvas redraws at 60 fps so the movement is smooth, no jitter. Presets for 0, 45, 90, 135, 180, 225, 270, and 315 degrees get you to common headings with one click. Fine-tune with +5/+10 or -5/-10 step buttons. Keyboard shortcuts too: Enter to go, Space to stop. If you've got a map loaded, the needle sweeps across real geography, not just numbers on a dial.
+          The needle tracks the rotor in real time. Target heading displayed above the compass, live azimuth readout below. The canvas redraws at 60 fps so the movement is smooth, no jitter. The needle rotates continuously across 0°/360° without snapping. Presets for 0, 45, 90, 135, 180, 225, 270, 315, and 360 degrees get you to common headings with one click. Fine-tune with +5/+10 or -5/-10 step buttons. Keyboard shortcuts too: Enter to go, Space to stop.
+        </p>
+      </article>
+
+      <article class="feature-card">
+        <div class="fc-icon" aria-hidden="true"><div class="ic-map"></div></div>
+        <h3 class="fc-title">Overlap indicator and configurable azimuth limits built right in</h3>
+        <p class="fc-desc">
+          Highlight the mechanical overlap zone on the compass with a glowing blue arc, adjustable from 0° to 360°. Need to avoid an obstruction or keep the beam inside a particular sector? Enable hardware-style azimuth limits: define a minimum and maximum heading, and the rotor automatically takes the long way around forbidden sectors instead of crashing into them. The forbidden sector appears as a dashed red overlay on the compass. Both settings are toggleable from a collapsible panel, persist across restarts via localStorage, and update the compass in real time.
         </p>
       </article>
 
