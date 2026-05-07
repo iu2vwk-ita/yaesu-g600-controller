@@ -5,7 +5,7 @@ Universal antenna rotor controller for **Yaesu G-600** and compatible rotors (GS
 [![Build](https://github.com/iu2vwk-ita/WK-Rotor-Control/actions/workflows/build.yml/badge.svg)](https://github.com/iu2vwk-ita/WK-Rotor-Control/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/iu2vwk-ita/WK-Rotor-Control?color=ffb300)](https://github.com/iu2vwk-ita/WK-Rotor-Control/releases/latest)
 
-![screenshot](landing/overlap.png)
+![screenshot](landing/wmrotorcontrol.png)
 
 ---
 
